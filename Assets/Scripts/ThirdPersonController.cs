@@ -2,6 +2,7 @@ using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Sirenix.OdinInspector;
+using UnityEngine.Events;
 
 public class ThirdPersonController : MonoBehaviour
 {
@@ -14,8 +15,8 @@ public class ThirdPersonController : MonoBehaviour
     [FoldoutGroup("References")]
     public CinemachineCamera characterAimCamera;
     [FoldoutGroup("References")]
-  //  public Animator animator;
-
+    // public Animator animator;
+    public LineRenderer Rayprefab;
 
     [FoldoutGroup("Controller")]
     public float moveSpeed = 5f;
@@ -41,7 +42,7 @@ public class ThirdPersonController : MonoBehaviour
 
     [SerializeField] private Vector2 moveInput;
 
-
+    public UnityEvent OnMoveAll;
 
     [FoldoutGroup("WallRun")]
     public float rayLenght;
@@ -57,6 +58,7 @@ public class ThirdPersonController : MonoBehaviour
     Vector3 normalDebug;
     Vector3 impactPoint;
     Vector3 crossResult;
+    public Transform WeaponShootAnchor;
 
     private void Awake()
     {
@@ -76,14 +78,13 @@ public class ThirdPersonController : MonoBehaviour
         inputs.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         inputs.Player.Move.canceled += ctx => moveInput = Vector2.zero;
 
-
         inputs.Player.Jump.performed += OnJump;
         inputs.Player.Aim.started += ctx =>
-            {
-                characterCamera.Priority = 0;
-                characterAimCamera.Priority = 10;
-                aimMode = true;
-            };
+        {
+            characterCamera.Priority = 0;
+            characterAimCamera.Priority = 10;
+            aimMode = true;
+        };
         inputs.Player.Aim.canceled += ctx =>
         {
             characterCamera.Priority = 10;
@@ -92,7 +93,25 @@ public class ThirdPersonController : MonoBehaviour
         };
 
         // inputs.Player.Sprint.performed += OnDash;
+        inputs.Player.Attack.performed += OnAtack;
     }
+
+    private void OnAtack(InputAction.CallbackContext context)
+    {
+        Debug.Log("Attack");
+        Physics.Raycast(WeaponShootAnchor.position, characterAimCamera.transform.forward, out RaycastHit hit, 100);
+
+        if (hit.collider != null)
+        {
+            LineRenderer ray = Instantiate(Rayprefab, transform.position, Quaternion.identity);
+            ray.gameObject.transform.position = WeaponShootAnchor.position;
+            ray.positionCount = 2;
+            ray.SetPosition(0, WeaponShootAnchor.position);
+            ray.SetPosition(1, hit.point);
+        }
+    }
+
+    
     void Start()
     {
 
@@ -107,23 +126,20 @@ public class ThirdPersonController : MonoBehaviour
     public void OnMove()
     {
 
-
         Vector3 cameraForwardDir = characterCamera.transform.forward;
         cameraForwardDir.y = 0;
         cameraForwardDir.Normalize();
 
-
-        if(!aimMode)
+        if (!aimMode)
         {
             if (moveInput != Vector2.zero)
             {
                 Quaternion targetQuaternion = Quaternion.LookRotation(cameraForwardDir);
                 //transform.rotation = targetQuaternion;
                 transform.rotation = Quaternion.Slerp(
-                    transform.rotation,
-                    targetQuaternion,
-                    rotationSpeed * Time.deltaTime);
-
+                  transform.rotation,
+                  targetQuaternion,
+                  rotationSpeed * Time.deltaTime);
 
             }
         }
@@ -137,11 +153,11 @@ public class ThirdPersonController : MonoBehaviour
             Quaternion targetQuaternion = Quaternion.LookRotation(cameraForwardAimDir);
 
             transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetQuaternion,
-                rotationSpeed * Time.deltaTime);
+                    transform.rotation,
+                    targetQuaternion,
+                    rotationSpeed * Time.deltaTime);
         }
-       
+
         //>?
         Vector3 moveDir;
         if (!enableWallRun)
@@ -152,14 +168,11 @@ public class ThirdPersonController : MonoBehaviour
         {
             moveDir = (crossResult * moveInput.y) * moveSpeed;
 
-
-            
         }
 
         float magnitud = Mathf.Abs(controller.velocity.magnitude);
         // print(magnitud);
         //animator.SetFloat("Speed", GetSpeed());
-
 
         verticalVelocity += Physics.gravity.y * Time.deltaTime;
 
@@ -169,11 +182,9 @@ public class ThirdPersonController : MonoBehaviour
         if (controller.isGrounded && verticalVelocity < 0)
             verticalVelocity = -2f;
 
-
         moveDir.y = verticalVelocity;
 
-       // animator.SetBool("Grounded", controller.isGrounded);
-
+        // animator.SetBool("Grounded", controller.isGrounded);
 
         if (IsDashing)
         {
@@ -192,7 +203,7 @@ public class ThirdPersonController : MonoBehaviour
     {
         if (!controller.isGrounded) return;
 
-       // animator.SetTrigger("Jump");
+        // animator.SetTrigger("Jump");
         source.GenerateImpulse();
         verticalVelocity = jumpForce;
     }
@@ -227,13 +238,12 @@ public class ThirdPersonController : MonoBehaviour
 
         Physics.Raycast(transform.position, -transform.right, out RaycastHit hitLeft, rayLenght);
 
-   
         if (hitRight.collider != null && hitRight.collider.gameObject.tag == "Wall")
         {
             hit = hitRight;
             characterCamera.Lens.Dutch = cameraTitlt;
         }
-        else if(hitLeft.collider != null && hitLeft.collider.gameObject.tag == "Wall")
+        else if (hitLeft.collider != null && hitLeft.collider.gameObject.tag == "Wall")
         {
             hit = hitLeft;
             characterCamera.Lens.Dutch = -cameraTitlt;
@@ -244,7 +254,7 @@ public class ThirdPersonController : MonoBehaviour
             enableWallRun = false;
         }
 
-        if(hit.collider != null)
+        if (hit.collider != null)
         {
             enableWallRun = true;
 
@@ -275,7 +285,6 @@ public class ThirdPersonController : MonoBehaviour
 
         Gizmos.color = Color.orange;
         Gizmos.DrawRay(impactPoint, crossResult * rayLenght);
-
 
     }
 }
